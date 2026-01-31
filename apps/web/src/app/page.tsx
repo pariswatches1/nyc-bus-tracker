@@ -269,10 +269,10 @@ export default function Home() {
         <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 8 }}>Nearby Stops</h2>
 
         {geo.status !== "granted" ? (
-          <InfoBox title="Waiting for location">
-            Enable location above to see nearby stops.
-          </InfoBox>
-        ) : (
+          <InfoBox title="Enable location to see nearby stops">
+    Tap <b>Use my location</b> above and choose <b>Allow</b> when prompted.
+  </InfoBox>
+) : (
           <div style={{ display: "grid", gap: 12 }}>
             {mockStops.map((s) => (
               <div
