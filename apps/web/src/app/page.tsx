@@ -99,7 +99,8 @@ export default function Home() {
   // Mock nearby stops (for Step 2). Later we replace this with real MTA data.
   const mockStops: StopCard[] = useMemo(() => {
     // Small variation just to look realistic
-    const base = [
+    const base: StopCard[] = [
+
       {
         stopId: "MTA_STOP_1",
         name: "E 42 St & 3 Av",
