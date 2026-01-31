@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+/** ---------------- Types ---------------- */
 type GeoState =
   | { status: "idle" }
   | { status: "requesting" }
@@ -22,6 +23,7 @@ type StopCard = {
   arrivals: ArrivalChip[];
 };
 
+/** --------------- Helpers --------------- */
 function fmt(n: number, digits = 5) {
   return n.toFixed(digits);
 }
@@ -42,7 +44,7 @@ function InfoBox({ title, children }: { title: string; children: React.ReactNode
         background: "#f9fafb",
       }}
     >
-      <div style={{ fontWeight: 800, marginBottom: 6 }}>{title}</div>
+      <div style={{ fontWeight: 900, marginBottom: 6 }}>{title}</div>
       <div style={{ color: "#374151" }}>{children}</div>
     </div>
   );
@@ -54,7 +56,7 @@ function ConfidencePill({ kind }: { kind: "live" | "scheduled" }) {
     <span
       style={{
         fontSize: 11,
-        fontWeight: 800,
+        fontWeight: 900,
         padding: "3px 8px",
         borderRadius: 999,
         border: `1px solid ${live ? "#10b981" : "#f59e0b"}`,
@@ -72,17 +74,24 @@ function ArrivalPill({ a }: { a: ArrivalChip }) {
     <span
       style={{
         display: "inline-flex",
-        gap: 6,
+        gap: 8,
         alignItems: "center",
         padding: "6px 10px",
         borderRadius: 999,
         border: "1px solid #e5e7eb",
         background: "#fff",
         fontSize: 12,
-        fontWeight: 800,
+        fontWeight: 900,
       }}
     >
-      <span style={{ padding: "2px 8px", borderRadius: 999, background: "#111", color: "#fff" }}>
+      <span
+        style={{
+          padding: "2px 8px",
+          borderRadius: 999,
+          background: "#111",
+          color: "#fff",
+        }}
+      >
         {a.route}
       </span>
       <span>{a.minutes} min</span>
@@ -91,16 +100,16 @@ function ArrivalPill({ a }: { a: ArrivalChip }) {
   );
 }
 
+/** ---------------- Page ---------------- */
 export default function Home() {
   const [geo, setGeo] = useState<GeoState>({ status: "idle" });
+  const [selectedStop, setSelectedStop] = useState<StopCard | null>(null);
 
   const canUseGeo = useMemo(() => typeof navigator !== "undefined" && !!navigator.geolocation, []);
 
-  // Mock nearby stops (for Step 2). Later we replace this with real MTA data.
-  const mockStops: StopCard[] = useMemo(() => {
-    // Small variation just to look realistic
+  /** Mock nearby stops (Step 2). Later we replace with real MTA data. */
+  const mockStops = useMemo<StopCard[]>(() => {
     const base: StopCard[] = [
-
       {
         stopId: "MTA_STOP_1",
         name: "E 42 St & 3 Av",
@@ -133,7 +142,7 @@ export default function Home() {
     return base;
   }, []);
 
-  async function requestLocation() {
+  function requestLocation() {
     if (!canUseGeo) {
       setGeo({ status: "error", message: "Geolocation is not available in this browser/device." });
       return;
@@ -162,7 +171,7 @@ export default function Home() {
   return (
     <main style={{ padding: 24, maxWidth: 560, margin: "0 auto" }}>
       <header>
-        <h1 style={{ fontSize: 30, fontWeight: 900, margin: 0 }}>Buslee 🚍</h1>
+        <h1 style={{ fontSize: 30, fontWeight: 950, margin: 0 }}>Buslee 🚍</h1>
         <p style={{ marginTop: 6, color: "#555" }}>Stop-first bus tracking for NYC.</p>
       </header>
 
@@ -176,7 +185,7 @@ export default function Home() {
           background: "#fff",
         }}
       >
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Step 1: Location</h2>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>Step 1: Location</h2>
         <p style={{ marginTop: 8, color: "#555" }}>
           We use your location to show nearby stops instantly—no searching.
         </p>
@@ -191,7 +200,7 @@ export default function Home() {
               border: "1px solid #111",
               background: geo.status === "requesting" ? "#eee" : "#111",
               color: geo.status === "requesting" ? "#111" : "#fff",
-              fontWeight: 800,
+              fontWeight: 900,
               cursor: geo.status === "requesting" ? "not-allowed" : "pointer",
             }}
           >
@@ -199,13 +208,16 @@ export default function Home() {
           </button>
 
           <button
-            onClick={() => setGeo({ status: "idle" })}
+            onClick={() => {
+              setGeo({ status: "idle" });
+              setSelectedStop(null);
+            }}
             style={{
               padding: "10px 14px",
               borderRadius: 10,
               border: "1px solid #ddd",
               background: "#fff",
-              fontWeight: 800,
+              fontWeight: 900,
               cursor: "pointer",
             }}
           >
@@ -231,7 +243,7 @@ export default function Home() {
                 background: "#ecfdf5",
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Location received ✅</div>
+              <div style={{ fontWeight: 950, marginBottom: 6 }}>Location received ✅</div>
               <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
                 lat: {fmt(geo.lat)} <br />
                 lon: {fmt(geo.lon)} <br />
@@ -258,21 +270,21 @@ export default function Home() {
 
           {!canUseGeo && (
             <InfoBox title="Geolocation unavailable">
-              This browser/device doesn’t support geolocation. Try Chrome or Safari on a phone.
+              This browser/device doesn’t support geolocation. Try Chrome on a phone.
             </InfoBox>
           )}
         </div>
       </section>
 
-      {/* Step 2: Nearby Stops (only shows after location granted) */}
-      <section style={{ marginTop: 16 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 900, marginBottom: 8 }}>Nearby Stops</h2>
+      {/* Step 2: Nearby Stops */}
+      <section style={{ marginTop: 20 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 950, marginBottom: 10 }}>Nearby Stops</h2>
 
         {geo.status !== "granted" ? (
           <InfoBox title="Enable location to see nearby stops">
-    Tap <b>Use my location</b> above and choose <b>Allow</b> when prompted.
-  </InfoBox>
-) : (
+            Tap <b>Use my location</b> above and choose <b>Allow</b> when prompted.
+          </InfoBox>
+        ) : (
           <div style={{ display: "grid", gap: 12 }}>
             {mockStops.map((s) => (
               <div
@@ -285,8 +297,8 @@ export default function Home() {
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ fontWeight: 900 }}>{s.name}</div>
-                  <div style={{ color: "#6b7280", fontWeight: 800, fontSize: 12 }}>
+                  <div style={{ fontWeight: 950 }}>{s.name}</div>
+                  <div style={{ color: "#6b7280", fontWeight: 900, fontSize: 12 }}>
                     {distanceLabel(s.distanceM)}
                   </div>
                 </div>
@@ -298,19 +310,17 @@ export default function Home() {
                 </div>
 
                 <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#6b7280", fontSize: 12 }}>
-                    Updated just now
-                  </span>
+                  <span style={{ color: "#6b7280", fontSize: 12 }}>Updated just now</span>
 
                   <button
-                    onClick={() => alert(`Next step: Stop Board for ${s.stopId} (we’ll build this next).`)}
+                    onClick={() => setSelectedStop(s)}
                     style={{
                       padding: "8px 12px",
                       borderRadius: 10,
                       border: "1px solid #111",
                       background: "#111",
                       color: "#fff",
-                      fontWeight: 900,
+                      fontWeight: 950,
                       cursor: "pointer",
                     }}
                   >
@@ -323,8 +333,93 @@ export default function Home() {
         )}
       </section>
 
+      {/* Step 3: Stop Board */}
+      {selectedStop && (
+        <section
+          style={{
+            marginTop: 24,
+            padding: 16,
+            borderRadius: 16,
+            border: "2px solid #111",
+            background: "#fff",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 950, margin: 0 }}>{selectedStop.name}</h2>
+
+            <button
+              onClick={() => setSelectedStop(null)}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid #ddd",
+                background: "#fff",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              Back
+            </button>
+          </div>
+
+          <p style={{ marginTop: 6, color: "#6b7280", fontSize: 12 }}>
+            Updated just now · Trust labels shown per arrival
+          </p>
+
+          <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+            {selectedStop.arrivals.map((a, idx) => (
+              <div
+                key={idx}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  background: "#f9fafb",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <span
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      background: "#111",
+                      color: "#fff",
+                      fontWeight: 950,
+                    }}
+                  >
+                    {a.route}
+                  </span>
+
+                  <span style={{ fontWeight: 950, fontSize: 18 }}>{a.minutes} min</span>
+
+                  <ConfidencePill kind={a.kind} />
+                </div>
+
+                <button
+                  onClick={() => alert("Next: Track This Bus (map + live movement).")}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #111",
+                    background: "#111",
+                    color: "#fff",
+                    fontWeight: 950,
+                    cursor: "pointer",
+                  }}
+                >
+                  Track Bus →
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <footer style={{ marginTop: 18, color: "#777", fontSize: 12 }}>
-        Next: Nearby Stops (real data) → Stop Board → Track Bus.
+        Next: Nearby Stops (real data) → Stop Board (real data) → Track Bus.
       </footer>
     </main>
   );
