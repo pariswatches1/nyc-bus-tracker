@@ -23,9 +23,7 @@ export async function GET() {
   );
 
   const feeds = results.map((r, i) =>
-    r.status === "fulfilled"
-      ? r.value
-      : { url: FEEDS[i], ok: false, status: 0, bytes: 0 }
+    r.status === "fulfilled" ? r.value : { url: FEEDS[i], ok: false, status: 0, bytes: 0 }
   );
 
   const okCount = feeds.filter((f) => f.ok).length;
