@@ -69,7 +69,7 @@ function ConfidencePill({ kind }: { kind: "live" | "scheduled" }) {
   );
 }
 
-function ArrivalPill({ a }: { a: ArrivalChip }) {
+function ArrivalPill({ a, showScheduled }: { a: ArrivalChip; showScheduled: boolean }) {
   return (
     <span
       style={{
@@ -94,21 +94,47 @@ function ArrivalPill({ a }: { a: ArrivalChip }) {
       >
         {a.route}
       </span>
-      <span>{a.minutes} min</span>
-      <ConfidencePill kind={a.kind} />
+      <span style={{ color: "#222222" }}>{a.minutes} min</span>
+      {(a.kind === "live" || showScheduled) && <ConfidencePill kind={a.kind} />}
     </span>
   );
 }
 
 /** ---------------- Page ---------------- */
 export default function Home() {
+  const [mode, setMode] = useState<"bus" | "subway">("bus");
   const [geo, setGeo] = useState<GeoState>({ status: "idle" });
   const [selectedStop, setSelectedStop] = useState<StopCard | null>(null);
+  const [showLocationDetails, setShowLocationDetails] = useState(false);
 
   const canUseGeo = useMemo(() => typeof navigator !== "undefined" && !!navigator.geolocation, []);
 
+  function setModeSafe(next: "bus" | "subway") {
+    setMode(next);
+    setSelectedStop(null);
+  }
+
+  /** Subway: start with ONE hardcoded station (so we don't get lost). */
+  const subwayMockStops: StopCard[] = useMemo(
+    () => [
+      {
+        stopId: "TSQ",
+        name: "Times Sq – 42 St",
+        distanceM: 0,
+        arrivals: [
+          { route: "1 Uptown", minutes: 2, kind: "live" },
+          { route: "1 Downtown", minutes: 5, kind: "live" },
+          { route: "2 Uptown", minutes: 1, kind: "live" },
+        ],
+      },
+    ],
+    []
+  );
+
   /** Mock nearby stops (Step 2). Later we replace with real MTA data. */
   const mockStops = useMemo<StopCard[]>(() => {
+    if (mode === "subway") return subwayMockStops;
+
     const base: StopCard[] = [
       {
         stopId: "MTA_STOP_1",
@@ -140,7 +166,19 @@ export default function Home() {
       },
     ];
     return base;
-  }, []);
+  }, [mode, subwayMockStops]);
+
+  /** For Nearby Stops/Stations: show ONLY the soonest arrival per route label. */
+  const nearbyDisplayStops = useMemo<StopCard[]>(() => {
+    return mockStops.map((s) => {
+      const bestByRoute = new Map<string, ArrivalChip>();
+      for (const a of s.arrivals) {
+        const prev = bestByRoute.get(a.route);
+        if (!prev || a.minutes < prev.minutes) bestByRoute.set(a.route, a);
+      }
+      return { ...s, arrivals: Array.from(bestByRoute.values()).sort((a, b) => a.minutes - b.minutes) };
+    });
+  }, [mockStops]);
 
   function requestLocation() {
     if (!canUseGeo) {
@@ -173,6 +211,39 @@ export default function Home() {
       <header>
         <h1 style={{ fontSize: 30, fontWeight: 950, margin: 0 }}>Buslee 🚍</h1>
         <p style={{ marginTop: 6, color: "#555" }}>Stop-first bus tracking for NYC.</p>
+
+        {/* Mode toggle */}
+        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          <button
+            onClick={() => setModeSafe("bus")}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 999,
+              border: "1px solid #111",
+              background: mode === "bus" ? "#111" : "#fff",
+              color: mode === "bus" ? "#fff" : "#111",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            Buses
+          </button>
+
+          <button
+            onClick={() => setModeSafe("subway")}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 999,
+              border: "1px solid #111",
+              background: mode === "subway" ? "#111" : "#fff",
+              color: mode === "subway" ? "#fff" : "#111",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            Subway
+          </button>
+        </div>
       </header>
 
       {/* Step 1: Location */}
@@ -211,6 +282,7 @@ export default function Home() {
             onClick={() => {
               setGeo({ status: "idle" });
               setSelectedStop(null);
+              setShowLocationDetails(false);
             }}
             style={{
               padding: "10px 14px",
@@ -243,15 +315,40 @@ export default function Home() {
                 background: "#ecfdf5",
               }}
             >
-              <div style={{ fontWeight: 950, marginBottom: 6 }}>Location received ✅</div>
-              <div style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
-                lat: {fmt(geo.lat)} <br />
-                lon: {fmt(geo.lon)} <br />
-                accuracy: ~{Math.round(geo.accuracyM)}m
-              </div>
-              <div style={{ marginTop: 8, color: "#065f46", fontSize: 12 }}>
-                Updated: {new Date(geo.ts).toLocaleTimeString()}
-              </div>
+              <div style={{ fontWeight: 950, marginBottom: 6 }}>Location found ✅</div>
+
+              <button
+                onClick={() => setShowLocationDetails((v) => !v)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  padding: 0,
+                  color: "#065f46",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                {showLocationDetails ? "Hide details" : "Show details"}
+              </button>
+
+              {showLocationDetails && (
+                <>
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                      color: "#064e3b",
+                    }}
+                  >
+                    lat: {fmt(geo.lat)} <br />
+                    lon: {fmt(geo.lon)} <br />
+                    accuracy: ~{Math.round(geo.accuracyM)}m
+                  </div>
+                  <div style={{ marginTop: 8, color: "#065f46", fontSize: 12 }}>
+                    Updated: {new Date(geo.ts).toLocaleTimeString()}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -276,17 +373,19 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Step 2: Nearby Stops */}
+      {/* Step 2: Nearby Stops / Stations */}
       <section style={{ marginTop: 20 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 950, marginBottom: 10 }}>Nearby Stops</h2>
+        <h2 style={{ fontSize: 18, fontWeight: 950, marginBottom: 10 }}>
+          {mode === "bus" ? "Nearby Stops" : "Nearby Stations"}
+        </h2>
 
         {geo.status !== "granted" ? (
-          <InfoBox title="Enable location to see nearby stops">
+          <InfoBox title={`Enable location to see nearby ${mode === "bus" ? "stops" : "stations"}`}>
             Tap <b>Use my location</b> above and choose <b>Allow</b> when prompted.
           </InfoBox>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
-            {mockStops.map((s) => (
+            {nearbyDisplayStops.map((s) => (
               <div
                 key={s.stopId}
                 style={{
@@ -297,7 +396,7 @@ export default function Home() {
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ fontWeight: 950 }}>{s.name}</div>
+                  <div style={{ fontWeight: 950, color: "#111111" }}>{s.name}</div>
                   <div style={{ color: "#6b7280", fontWeight: 900, fontSize: 12 }}>
                     {distanceLabel(s.distanceM)}
                   </div>
@@ -305,7 +404,7 @@ export default function Home() {
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                   {s.arrivals.map((a, idx) => (
-                    <ArrivalPill key={idx} a={a} />
+                    <ArrivalPill key={idx} a={a} showScheduled={false} />
                   ))}
                 </div>
 
@@ -324,7 +423,7 @@ export default function Home() {
                       cursor: "pointer",
                     }}
                   >
-                    Open Stop Board →
+                    {mode === "bus" ? "See buses at this stop →" : "See trains at this station →"}
                   </button>
                 </div>
               </div>
@@ -393,13 +492,21 @@ export default function Home() {
                     {a.route}
                   </span>
 
-                  <span style={{ fontWeight: 950, fontSize: 18 }}>{a.minutes} min</span>
+                  <span style={{ fontWeight: 950, fontSize: 18, color: "#222222" }}>
+                    {a.minutes} min
+                  </span>
 
                   <ConfidencePill kind={a.kind} />
                 </div>
 
                 <button
-                  onClick={() => alert("Next: Track This Bus (map + live movement).")}
+                  onClick={() =>
+                    alert(
+                      mode === "bus"
+                        ? "Next: Track This Bus (map + live movement)."
+                        : "Next: Track This Train (map + live movement)."
+                    )
+                  }
                   style={{
                     padding: "8px 12px",
                     borderRadius: 10,
@@ -410,7 +517,7 @@ export default function Home() {
                     cursor: "pointer",
                   }}
                 >
-                  Track Bus →
+                  {mode === "bus" ? "Track Bus →" : "Track Train →"}
                 </button>
               </div>
             ))}
@@ -419,7 +526,7 @@ export default function Home() {
       )}
 
       <footer style={{ marginTop: 18, color: "#777", fontSize: 12 }}>
-        Next: Nearby Stops (real data) → Stop Board (real data) → Track Bus.
+        Next: Replace mock data with real {mode === "bus" ? "bus" : "subway"} data.
       </footer>
     </main>
   );
