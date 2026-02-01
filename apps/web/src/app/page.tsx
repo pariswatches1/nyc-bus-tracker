@@ -1,9 +1,9 @@
-import os, zipfile, textwrap, shutil, pathlib
+import os, textwrap, zipfile, shutil
 
-# Prepare content from user's provided page.tsx (as-is)
-page_content = r'''"use client";
+page_tsx = textwrap.dedent("""\
+"use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 
 /** ---------------- Types ---------------- */
 type GeoState =
@@ -73,7 +73,6 @@ function ConfidencePill({ kind }: { kind: "live" | "scheduled" }) {
 }
 
 function ArrivalPill({ a, showScheduled }: { a: ArrivalChip; showScheduled: boolean }) {
-  // Minutes are important: use dark gray for readability.
   return (
     <span
       style={{
@@ -101,7 +100,6 @@ function ArrivalPill({ a, showScheduled }: { a: ArrivalChip; showScheduled: bool
 
       <span style={{ color: "#222222" }}>{a.minutes} min</span>
 
-      {/* Nearby list: keep LIVE, hide SCHEDULED (unless showScheduled=true). */}
       {(a.kind === "live" || showScheduled) && <ConfidencePill kind={a.kind} />}
     </span>
   );
@@ -109,10 +107,6 @@ function ArrivalPill({ a, showScheduled }: { a: ArrivalChip; showScheduled: bool
 
 /** ---------------- Page ---------------- */
 export default function Home() {
-  ...
-}
-
-export default Home;
   const [mode, setMode] = useState<"bus" | "subway">("bus");
   const [geo, setGeo] = useState<GeoState>({ status: "idle" });
   const [selectedStop, setSelectedStop] = useState<StopCard | null>(null);
@@ -121,13 +115,11 @@ export default Home;
   const canUseGeo = useMemo(() => typeof navigator !== "undefined" && !!navigator.geolocation, []);
 
   function setModeSafe(next: "bus" | "subway") {
-    // Fix: mode must match the label (Buses => "bus", Subway => "subway")
     setMode(next);
-    // Clear any open Stop Board when switching modes to avoid confusion.
     setSelectedStop(null);
   }
 
-  /** Subway: start with ONE hardcoded station (safe). */
+  /** Subway: ONE hardcoded station (safe). */
   const subwayMockStops: StopCard[] = useMemo(
     () => [
       {
@@ -144,9 +136,9 @@ export default Home;
     []
   );
 
-  /** Mock nearby stops (bus). */
+  /** Bus mock stops. */
   const busMockStops = useMemo<StopCard[]>(() => {
-    const base: StopCard[] = [
+    return [
       {
         stopId: "MTA_STOP_1",
         name: "E 42 St & 3 Av",
@@ -176,16 +168,15 @@ export default Home;
         ],
       },
     ];
-    return base;
   }, []);
 
-  /** Pick data by mode. (This is where the bug usually happens.) */
-  const stopsForMode = useMemo<StopCard[]>(() => {
-    // Correct: Subway button => "subway" => subway data.
-    return mode === "subway" ? subwayMockStops : busMockStops;
-  }, [mode, subwayMockStops, busMockStops]);
+  const stopsForMode = useMemo<StopCard[]>(() => (mode === "subway" ? subwayMockStops : busMockStops), [
+    mode,
+    subwayMockStops,
+    busMockStops,
+  ]);
 
-  /** For Nearby list: show ONLY the soonest arrival per route label. */
+  /** Nearby list: show ONLY soonest arrival per route label. */
   const nearbyDisplayStops = useMemo<StopCard[]>(() => {
     return stopsForMode.map((s) => {
       const bestByRoute = new Map<string, ArrivalChip>();
@@ -229,7 +220,6 @@ export default Home;
         <h1 style={{ fontSize: 30, fontWeight: 950, margin: 0 }}>Buslee 🚍</h1>
         <p style={{ marginTop: 6, color: "#555" }}>Stop-first transit tracking for NYC.</p>
 
-        {/* Mode toggle (correct mapping) */}
         <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
           <button
             onClick={() => setModeSafe("bus")}
@@ -542,72 +532,69 @@ export default Home;
     </main>
   );
 }
-'''
-
-route_content = textwrap.dedent("""\
-    import { NextResponse } from "next/server";
-
-    const FEEDS = [
-      "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs",
-      "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-ace",
-      "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-bdfm",
-      "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-g",
-      "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-jz",
-      "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-nqrw",
-      "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-l",
-    ];
-
-    export async function GET() {
-      const apiKey = process.env.MTA_API_KEY; // optional
-      const headers: Record<string, string> = apiKey ? { "x-api-key": apiKey } : {};
-
-      const results = await Promise.allSettled(
-        FEEDS.map(async (url) => {
-          const res = await fetch(url, { headers, cache: "no-store" });
-          const bytes = res.ok ? (await res.arrayBuffer()).byteLength : 0;
-          return { url, ok: res.ok, status: res.status, bytes };
-        })
-      );
-
-      const feeds = results.map((r, i) =>
-        r.status === "fulfilled"
-          ? r.value
-          : { url: FEEDS[i], ok: false, status: 0, bytes: 0 }
-      );
-
-      const okCount = feeds.filter((f) => f.ok).length;
-
-      return NextResponse.json({
-        ok: okCount > 0,
-        okCount,
-        feeds,
-        time: Date.now(),
-      });
-    }
 """)
 
-# Build zip with the two files at correct repo paths
-staging_dir = "/mnt/data/buslee_two_files"
-if os.path.exists(staging_dir):
-    shutil.rmtree(staging_dir)
-os.makedirs(staging_dir, exist_ok=True)
+subway_route_ts = textwrap.dedent("""\
+import { NextResponse } from "next/server";
 
-page_path = os.path.join(staging_dir, "apps/web/src/app/page.tsx")
+const FEEDS = [
+  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs",
+  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-ace",
+  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-bdfm",
+  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-g",
+  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-jz",
+  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-nqrw",
+  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/nyct%2Fgtfs-l",
+];
+
+export async function GET() {
+  const apiKey = process.env.MTA_API_KEY; // optional
+  const headers: Record<string, string> = apiKey ? { "x-api-key": apiKey } : {};
+
+  const results = await Promise.allSettled(
+    FEEDS.map(async (url) => {
+      const res = await fetch(url, { headers, cache: "no-store" });
+      const bytes = res.ok ? (await res.arrayBuffer()).byteLength : 0;
+      return { url, ok: res.ok, status: res.status, bytes };
+    })
+  );
+
+  const feeds = results.map((r, i) =>
+    r.status === "fulfilled" ? r.value : { url: FEEDS[i], ok: false, status: 0, bytes: 0 }
+  );
+
+  const okCount = feeds.filter((f) => f.ok).length;
+
+  return NextResponse.json({
+    ok: okCount > 0,
+    okCount,
+    feeds,
+    time: Date.now(),
+  });
+}
+""")
+
+staging = "/mnt/data/buslee_fix_default_export"
+if os.path.exists(staging):
+    shutil.rmtree(staging)
+os.makedirs(staging, exist_ok=True)
+
+page_path = os.path.join(staging, "apps/web/src/app/page.tsx")
 os.makedirs(os.path.dirname(page_path), exist_ok=True)
 with open(page_path, "w", encoding="utf-8") as f:
-    f.write(page_content)
+    f.write(page_tsx)
 
-route_path = os.path.join(staging_dir, "apps/web/src/app/api/subway/route.ts")
+route_path = os.path.join(staging, "apps/web/src/app/api/subway/route.ts")
 os.makedirs(os.path.dirname(route_path), exist_ok=True)
 with open(route_path, "w", encoding="utf-8") as f:
-    f.write(route_content)
+    f.write(subway_route_ts)
 
-zip_path = "/mnt/data/buslee_two_files.zip"
-if os.path.exists(zip_path):
-    os.remove(zip_path)
+zip_out = "/mnt/data/buslee_fixed_page_and_subway_route.zip"
+if os.path.exists(zip_out):
+    os.remove(zip_out)
 
-with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+with zipfile.ZipFile(zip_out, "w", zipfile.ZIP_DEFLATED) as z:
     z.write(page_path, arcname="apps/web/src/app/page.tsx")
     z.write(route_path, arcname="apps/web/src/app/api/subway/route.ts")
 
-zip_path
+zip_out
